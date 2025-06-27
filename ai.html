@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenRouter Chat Direkt API ile</title>
+  <style>
+    body, html { margin:0; padding:0; height:100%; font-family:sans-serif; background:#343541; color:#ececf1; }
+    .container { display:flex; height:100vh; }
+    .sidebar { width:240px; background:#202123; padding:16px; display:flex; flex-direction:column; }
+    .sidebar-header { font-weight:bold; margin-bottom:12px; }
+    .new-chat { background:#444654; padding:10px; text-align:center; margin-bottom:12px; cursor:pointer; border-radius:6px; user-select:none; }
+    .conv-item { padding:8px; cursor:pointer; border-radius:6px; margin-bottom:6px; background:#2a2a3c; user-select:none; }
+    .conv-item.active { background:#10a37f; color:#fff; }
+    .main { flex:1; display:flex; flex-direction:column; }
+    .header { padding:16px; border-bottom:1px solid #4b4f63; display:flex; justify-content:space-between; align-items:center; }
+    select { background:#202123; color:#ececf1; border:none; padding:6px 12px; border-radius:6px; }
+    .messages { flex:1; overflow-y:auto; padding:16px; }
+    .msg { max-width:70%; margin:8px 0; padding:12px 16px; border-radius:12px; line-height:1.4; white-space: pre-wrap; }
+    .msg.user { background:#10a37f; margin-left:auto; }
+    .msg.ai { background:#444654; margin-right:auto; }
+    .input-area { display:flex; padding:8px; border-top:1px solid #4b4f63; }
+    textarea { flex:1; resize:none; border-radius:6px; border:none; background:#444654; color:#ececf1; padding:10px; font-family:sans-serif; font-size:14px; }
+    button { margin-left:8px; background:#10a37f; border:none; padding:0 20px; border-radius:6px; cursor:pointer; color:#fff; font-weight:bold; }
+    button:disabled { opacity:0.6; cursor:not-allowed; }
+    /* Hamburger menu butonu gizli */
+.menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  color: #ececf1;
+  font-size: 28px;
+  cursor: pointer;
+  margin-right: 16px;
+}
+
+ @media (max-width: 768px) {
+  /* Container sütun moduna geçer */
+  .container {
+    flex-direction: column;
+    height: 100vh; /* Tam yükseklik olsun ki içi scroll yapsın */
+  }
+
+  /* Sidebar: mobilde tam ekran üstten aşağı açılır */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -100vw; /* tamamen gizli */
+    width: 80vw;  /* tam ekran değil, biraz kenar boşluğu */
+    max-width: 300px; /* büyük ekranlarda sınırlı */
+    height: 100vh;
+    padding: 24px 16px;
+    background: #202123;
+    overflow-y: auto;
+    box-shadow: 3px 0 20px rgba(0,0,0,0.6);
+    transition: left 0.3s ease;
+    z-index: 1100;
+    user-select: none;
+    border-radius: 0 12px 12px 0;
+  }
+  .sidebar.open {
+    left: 0;
+  }
+
+  /* Menü butonu */
+  .menu-toggle {
+    display: block;
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    color: #10a37f;
+    cursor: pointer;
+  }
+
+  /* Header */
+  .header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    padding: 0 16px;
+    background: #343541;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 1200;
+    box-sizing: border-box;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .header h2 {
+    font-size: 18px;
+    margin: 0 12px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  select {
+    max-width: 140px;
+    padding: 6px 8px;
+    font-size: 14px;
+    border-radius: 6px;
+    background: #202123;
+    color: #ececf1;
+    border: 1px solid #10a37f;
+  }
+
+  /* Main içerik */
+  .main {
+    margin-top: 56px;
+    height: calc(100vh - 56px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* scroll içe alınsın */
+  }
+
+  /* Mesaj alanı */
+  .messages {
+    padding: 12px 16px;
+    font-size: 14px;
+    overflow-y: auto;
+    flex: 1;
+    scrollbar-width: thin;
+    scrollbar-color: #10a37f #202123;
+  }
+  .messages::-webkit-scrollbar {
+    width: 6px;
+  }
+  .messages::-webkit-scrollbar-thumb {
+    background-color: #10a37f;
+    border-radius: 3px;
+  }
+
+  /* Input alanı */
+  .input-area {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid #4b4f63;
+    background: #343541;
+  }
+
+/* 2. Yazı kısmı (prompt textarea gibi olan) yüksekliği küçült */
+textarea.prompt-input {
+  min-height: 40px !important; /* daha kısa */
+  max-height: 80px !important; /* çok büyümesin */
+  height: auto;
+  padding: 8px 12px !important;
+  font-size: 15px !important;
+  border-radius: 6px !important;
+  resize: vertical !important;
+  background-color: #444654 !important;
+  color: #ececf1 !important;
+  border: none !important;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+  transition: background-color 0.2s ease !important;
+}
+
+textarea.prompt-input:focus {
+  background-color: #50535e !important;
+  outline: none !important;
+}
+
+  button {
+    width: 100%;
+    padding: 14px 0;
+    font-size: 17px;
+    border-radius: 8px;
+    background: #10a37f;
+    border: none;
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    user-select: none;
+  }
+  button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  button:hover:not(:disabled) {
+    background-color: #0e816c;
+  }
+
+  /* Sidebar sohbet listesi elemanları */
+  .conv-item {
+    font-size: 15px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    transition: background-color 0.25s ease;
+    cursor: pointer;
+    user-select: none;
+  }
+  .conv-item:hover {
+    background-color: #10a37f22;
+  }
+
+  /* Yeni sohbet butonu */
+  .new-chat {
+    padding: 12px;
+    font-size: 15px;
+    border-radius: 8px;
+    background: #10a37f11;
+    color: #10a37f;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.25s ease;
+  }
+  .new-chat:hover {
+    background-color: #10a37f33;
+  }
+}
+
+
+  </style>
+  <script type="module">
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyCnSABRJ5MxDAiXmV0Eem5qy8FlZx7i9bA",
+    authDomain: "pixelith-12a03.firebaseapp.com",
+    projectId: "pixelith-12a03",
+    storageBucket: "pixelith-12a03.firebasestorage.app",
+    messagingSenderId: "841683608499",
+    appId: "1:841683608499:web:f1f575fe020021a39261c6",
+    measurementId: "G-98VH6N9ZCS"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+const auth = getAuth(app);
+
+const authPopup = document.getElementById('authPopup');
+const authTitle = document.getElementById('authTitle');
+const authEmail = document.getElementById('authEmail');
+const authPassword = document.getElementById('authPassword');
+const authSubmitBtn = document.getElementById('authSubmitBtn');
+const switchToRegister = document.getElementById('switchToRegister');
+
+let isRegisterMode = false;
+
+// Kullanıcı login kontrolü
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    // Giriş yapılmış
+    authPopup.style.display = 'none';
+    console.log("Giriş yapıldı:", user.email);
+    // İstersen buraya kullanıcıyla ilgili işlemler ekle
+  } else {
+    // Giriş yok, popup aç
+    authPopup.style.display = 'flex';
+  }
+});
+
+// Giriş / Kayıt modunu değiştir
+switchToRegister.onclick = () => {
+  isRegisterMode = !isRegisterMode;
+  if (isRegisterMode) {
+    authTitle.textContent = 'Kayıt Ol';
+    authSubmitBtn.textContent = 'Kayıt Ol';
+    switchToRegister.textContent = 'Giriş Yap';
+  } else {
+    authTitle.textContent = 'Giriş Yap';
+    authSubmitBtn.textContent = 'Giriş Yap';
+    switchToRegister.textContent = 'Kayıt Ol';
+  }
+  authEmail.value = '';
+  authPassword.value = '';
+};
+
+// Giriş ya da kayıt işlemi
+authSubmitBtn.onclick = async () => {
+  const email = authEmail.value.trim();
+  const password = authPassword.value.trim();
+
+  if (!email || !password) {
+    alert('Email ve şifre girin!');
+    return;
+  }
+
+  try {
+    if (isRegisterMode) {
+      await createUserWithEmailAndPassword(auth, email, password);
+    } else {
+      await signInWithEmailAndPassword(auth, email, password);
+    }
+  } catch (error) {
+    alert('Hata: ' + error.message);
+  }
+};
+
+</script>
+</head>
+<body>
+  <div class="container">
+    <aside class="sidebar">
+      <div class="sidebar-header">Sohbetler</div>
+      <div class="new-chat" id="newChatBtn">+ Yeni Sohbet</div>
+      <div id="conversationList"></div>
+    </aside>
+
+<!-- Giriş/Kayıt Popup -->
+<div id="authPopup" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); z-index:9999; display:flex; justify-content:center; align-items:center; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <div style="
+    background:#1e1e2f; 
+    padding:30px 28px; 
+    border-radius:14px; 
+    width:340px; 
+    box-shadow: 0 4px 20px rgba(16,163,127,0.6);
+    color:#e0e6f0;
+    text-align:center;
+    ">
+    <h2 id="authTitle" style="margin-bottom:24px; font-weight:700; font-size:24px;">Giriş Yap</h2>
+    <input 
+      type="email" 
+      id="authEmail" 
+      placeholder="Email" 
+      style="
+        width:100%; 
+        padding:12px 14px; 
+        margin-bottom:18px; 
+        border-radius:8px; 
+        border:none; 
+        font-size:16px;
+        background:#2a2a3c;
+        color:#f0f4ff;
+        box-shadow: inset 0 0 6px #0ea37f;
+      "
+    />
+    <input 
+      type="password" 
+      id="authPassword" 
+      placeholder="Şifre" 
+      style="
+        width:100%; 
+        padding:12px 14px; 
+        margin-bottom:22px; 
+        border-radius:8px; 
+        border:none; 
+        font-size:16px;
+        background:#2a2a3c;
+        color:#f0f4ff;
+        box-shadow: inset 0 0 6px #0ea37f;
+      "
+    />
+    <button 
+      id="authSubmitBtn" 
+      style="
+        width:100%; 
+        padding:14px; 
+        background:#10a37f; 
+        border:none; 
+        border-radius:8px; 
+        color:#fff; 
+        font-weight:800; 
+        font-size:18px; 
+        cursor:pointer;
+        transition: background-color 0.3s ease;
+      "
+      onmouseover="this.style.backgroundColor='#0e8f69'"
+      onmouseout="this.style.backgroundColor='#10a37f'"
+    >Giriş Yap</button>
+    <p style="margin-top:20px; font-size:14px; color:#888;">
+      Hesabın yok mu? <span id="switchToRegister" style="color:#FFD700; cursor:pointer;">Kayıt Ol</span>
+    </p>
+    <p style="margin-top:20px; font-size:14px; color:#888;">Bu Site PixelithShop (Salih) <br> Tarafından Hazırlanmıştır</p>
+  </div>
+</div>
+
+
+    <main class="main">
+      <div class="header">
+        <h2 id="chatTitle">Yeni Sohbet</h2>
+        <select id="modelSelect"></select>
+        <button id="menuToggle" aria-label="Menu" class="menu-toggle">☰</button>
+
+      </div>
+      <div id="messages" class="messages"></div>
+      <div class="input-area">
+        <button id="uploadBtn" title="Resim Yükle" style="
+  background: #10a37f;
+  border: none;
+  padding: 0 14px;
+  margin-left: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  font-weight: bold;
+  font-size: 24px;
+  line-height: 1;
+  user-select:none;
+">＋</button>
+
+<input type="file" id="fileInput" accept="image/*" style="display:none" />
+
+        <textarea id="inputText" rows="2" placeholder="Mesajınızı yazın..."></textarea>
+        <button id="sendBtn">Gönder</button>
+      </div>
+    </main>
+  </div>
+
+<script>
+  const STORAGE_KEY = 'or_convos';
+  const MODELS = [
+    'google/gemini-2.0-flash-exp:free', 'google/gemma-3-12b-it:free', 'google/gemma-3-27b-it:free',
+    'nousresearch/deephermes-3-mistral-24b-preview:free','deepseek/deepseek-r1:free',
+    'nvidia/llama-3.3-nemotron-super-49b-v1:free','rekaai/reka-flash-3:free',
+    'cognitivecomputations/dolphin3.0-r1-mistral-24b:free','moonshotai/moonlight-16b-a3b-instruct:free',
+    'qwen/qwq-32b:free'
+  ];
+
+  // BURAYA KENDİ OPENROUTER API ANAHTARINI KOY:
+  const apiKey = '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';
+  const API_KEY = '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';
+
+const apiKeys = [
+  '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',
+  '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',
+];
+
+  let convs = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  let currentId = null;
+
+  const convListEl = document.getElementById('conversationList');
+  const newChatEl = document.getElementById('newChatBtn');
+  const chatTitleEl = document.getElementById('chatTitle');
+  const modelSelectEl = document.getElementById('modelSelect');
+  const msgsEl = document.getElementById('messages');
+  const inputEl = document.getElementById('inputText');
+  const sendBtn = document.getElementById('sendBtn');
+
+const MODEL_OPTIONS = [
+  { value: 'google/gemini-2.0-flash-exp:free', label: 'ChatGPT 4' },
+  { value: 'google/gemini-2.0-flash-exp:free', label: 'ChatGPT 4o' },
+  { value: 'google/gemini-2.0-flash-exp:free', label: 'ChatGPT 4o mini' },
+  { value: 'google/gemini-2.0-flash-exp:free', label: 'ChatGPT 4.1' },
+  { value: 'google/gemini-2.0-flash-exp:free', label: 'ChatGPT 3.5' },
+  { value: 'google/gemini-2.0-flash-exp:free', label: 'ChatGPT 3.5 Turbo' },
+  { value: 'google/gemini-2.0-flash-exp:free', label: 'ChatGPT 4.0 Turbo' },
+  { value: 'google/gemini-2.0-flash-exp:free', label: 'Google Gemini 2.0 Flash' },
+  { value: 'mistralai/mistral-small-3.1-24b-instruct-2503:free', label: 'Mistral: Mistral Small 3.1 24B' },
+  { value: 'google/gemma-3-12b-it:free', label: 'Google Gemma 3 12B' },
+  { value: 'google/gemma-3-27b-it:free', label: 'Google Gemma 3 27B' },
+  { value: 'nousresearch/deephermes-3-mistral-24b-preview:free', label: 'DeepHermes 3 Mistral 24B' },
+  { value: 'deepseek/deepseek-r1:free', label: 'DeepSeek R1' },
+  { value: 'deepseek/deepseek-chat:free', label: 'DeepSeek V3' },
+  { value: 'nvidia/llama-3.3-nemotron-super-49b-v1:free', label: 'NVIDIA Llama 3.3 Nemotron' },
+  { value: 'rekaai/reka-flash-3:free', label: 'Reka Flash 3' },
+  { value: 'cognitivecomputations/dolphin3.0-r1-mistral-24b:free', label: 'Dolphin3.0 R1 Mistral' },
+  { value: 'moonshotai/moonlight-16b-a3b-instruct:free', label: 'Moonshot AI Moonlight 16B' },
+  { value: 'qwen/qwq-32b:free', label: 'Qwen QwQ 32B' }
+];
+
+
+
+// Dropdown doldurma:
+MODEL_OPTIONS.forEach(m => {
+  const o = document.createElement('option');
+  o.value = m.value;
+  o.textContent = m.label;
+  modelSelectEl.appendChild(o);
+});
+
+const menuToggleBtn = document.getElementById('menuToggle');
+const sidebarEl = document.querySelector('.sidebar');
+
+menuToggleBtn.addEventListener('click', () => {
+  sidebarEl.classList.toggle('open');
+});
+
+// Rastgele API key seç
+function getRandomApiKey(excludeKey) {
+  const filtered = apiKeys.filter(k => k !== excludeKey);
+  if (filtered.length === 0) return excludeKey;
+  return filtered[Math.floor(Math.random() * filtered.length)];
+}
+
+
+  function save() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(convs));
+  }
+
+function renderSidebar() {
+  convListEl.innerHTML = '';
+  convs.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'conv-item' + (c.id === currentId ? ' active' : '');
+    div.style.position = 'relative'; // Menü için gerekli
+
+    // Başlık span olarak, çift tıklayınca düzenlenebilir
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = c.title || 'Yeni Sohbet';
+    titleSpan.style.cursor = 'pointer';
+    titleSpan.style.userSelect = 'none';
+
+    titleSpan.ondblclick = (e) => {
+      e.stopPropagation();
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = c.title || '';
+      input.style.width = '70%';
+      input.style.fontSize = '14px';
+
+      input.onkeydown = (ev) => {
+        if (ev.key === 'Enter') {
+          ev.preventDefault();
+          saveTitle();
+        }
+        if (ev.key === 'Escape') {
+          ev.preventDefault();
+          cancelEdit();
+        }
+      };
+
+      input.onblur = () => saveTitle();
+
+      function saveTitle() {
+        c.title = input.value.trim() || 'Yeni Sohbet';
+        save();
+        renderSidebar();
+        updateHeader();
+      }
+
+      function cancelEdit() {
+        renderSidebar();
+      }
+
+      div.replaceChild(input, titleSpan);
+      input.focus();
+    };
+
+    div.appendChild(titleSpan);
+
+    // Üç nokta menü butonu
+    const menuBtn = document.createElement('button');
+    menuBtn.textContent = '⋮';
+    menuBtn.style.cssText = `
+      background:none;
+      border:none;
+      color:#ccc;
+      font-size:18px;
+      cursor:pointer;
+      position:absolute;
+      right:8px;
+      top:50%;
+      transform: translateY(-50%);
+      padding:0;
+      user-select:none;
+    `;
+
+    
+
+    let menuOpen = false;
+    let menuDiv;
+
+menuBtn.onclick = (e) => {
+  e.stopPropagation();
+
+  if (menuOpen) {
+    menuDiv.remove();
+    menuOpen = false;
+    return;
+  }
+
+  // Menü div oluştur
+  menuDiv = document.createElement('div');
+  menuDiv.style.cssText = `
+    position: absolute;
+    top: 24px;
+    right: 0;
+    background: #202123;
+    border: 1px solid #444654;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    z-index: 1000;
+    width: 140px;
+  `;
+
+  // Dışa Aktar butonu
+  const exportBtn = document.createElement('div');
+  exportBtn.textContent = 'Dışa Aktar';
+  exportBtn.style.cssText = `
+    padding: 8px;
+    cursor: pointer;
+    color: #6a9;
+    border-bottom: 1px solid #444654;
+    user-select:none;
+  `;
+  exportBtn.onmouseenter = () => exportBtn.style.backgroundColor = '#357a35';
+  exportBtn.onmouseleave = () => exportBtn.style.backgroundColor = 'transparent';
+  exportBtn.onclick = (ev) => {
+    ev.stopPropagation();
+
+    const dataStr = JSON.stringify(c, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = (c.title || 'sohbet') + '.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+
+    menuDiv.remove();
+    menuOpen = false;
+  };
+
+  // Yeniden Adlandır butonu
+  const renameBtn = document.createElement('div');
+  renameBtn.textContent = 'Yeniden Adlandır';
+  renameBtn.style.cssText = `
+    padding: 8px;
+    cursor: pointer;
+    color: #FFD700;
+    border-bottom: 1px solid #444654;
+    user-select:none;
+  `;
+  renameBtn.onmouseenter = () => renameBtn.style.backgroundColor = '#357a35';
+  renameBtn.onmouseleave = () => renameBtn.style.backgroundColor = 'transparent';
+  renameBtn.onclick = (ev) => {
+    ev.stopPropagation();
+    menuDiv.remove();
+    menuOpen = false;
+
+    const titleSpan = div.querySelector('span');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = c.title || '';
+    input.style.width = '70%';
+    input.style.fontSize = '14px';
+
+    function saveTitle() {
+      c.title = input.value.trim() || 'Yeni Sohbet';
+      save();
+      renderSidebar();
+      updateHeader();
+    }
+
+    function cancelEdit() {
+      renderSidebar();
+    }
+
+    input.onkeydown = (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        saveTitle();
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelEdit();
+      }
+    };
+    input.onblur = saveTitle;
+
+    div.replaceChild(input, titleSpan);
+    input.focus();
+  };
+
+  // Sil butonu
+  const delBtn = document.createElement('div');
+  delBtn.textContent = 'Sil';
+  delBtn.style.cssText = `
+    padding: 8px;
+    cursor: pointer;
+    color: #e55;
+    border-bottom: 1px solid #444654;
+    user-select:none;
+  `;
+  delBtn.onmouseenter = () => delBtn.style.backgroundColor = '#b33';
+  delBtn.onmouseleave = () => delBtn.style.backgroundColor = 'transparent';
+  delBtn.onclick = (ev) => {
+    ev.stopPropagation();
+    convs = convs.filter(x => x.id !== c.id);
+    if (currentId === c.id) {
+      if (convs.length > 0) currentId = convs[0].id;
+      else currentId = null;
+    }
+    save();
+    renderSidebar();
+    renderMessages();
+    menuDiv.remove();
+    menuOpen = false;
+  };
+
+  // Bilgi butonu (modal açar)
+  const infoBtn = document.createElement('div');
+  infoBtn.textContent = 'Bilgi';
+  infoBtn.style.cssText = `
+    padding: 8px;
+    cursor: pointer;
+    color: #5af;
+    user-select:none;
+  `;
+  infoBtn.onmouseenter = () => infoBtn.style.backgroundColor = '#357ab7';
+  infoBtn.onmouseleave = () => infoBtn.style.backgroundColor = 'transparent';
+  infoBtn.onclick = (ev) => {
+    ev.stopPropagation();
+    showInfoModal(c);
+    menuDiv.remove();
+    menuOpen = false;
+  };
+
+  menuDiv.appendChild(exportBtn);
+  menuDiv.appendChild(renameBtn);
+  menuDiv.appendChild(delBtn);
+  menuDiv.appendChild(infoBtn);
+
+  div.appendChild(menuDiv);
+  menuOpen = true;
+
+  // Menü dışına tıklanınca kapat
+  document.addEventListener('click', function docClick() {
+    if (menuOpen) {
+      menuDiv.remove();
+      menuOpen = false;
+      document.removeEventListener('click', docClick);
+    }
+  });
+};
+
+
+    div.appendChild(menuBtn);
+    convListEl.appendChild(div);
+
+    // Div'e tıklayınca sohbet seçilsin (ama input ve buton engeller)
+    div.addEventListener('click', e => {
+      if (e.target === div || e.target === titleSpan) selectConv(c.id);
+    });
+  });
+}
+
+let infoModal, infoModalContent;
+
+function createModal() {
+  infoModal = document.createElement('div');
+  infoModal.style.cssText = `
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+  `;
+
+  infoModalContent = document.createElement('div');
+  infoModalContent.style.cssText = `
+    background: #202123;
+    padding: 20px;
+    border-radius: 12px;
+    width: 320px;
+    color: #ececf1;
+    font-family: sans-serif;
+    box-shadow: 0 0 15px #10a37f;
+    text-align: left;
+  `;
+
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Kapat';
+  closeBtn.style.cssText = `
+    margin-top: 12px;
+    background: #10a37f;
+    border: none;
+    padding: 8px 16px;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+  `;
+  closeBtn.onclick = () => {
+    document.body.removeChild(infoModal);
+  };
+
+  infoModalContent.appendChild(closeBtn);
+  infoModal.appendChild(infoModalContent);
+}
+
+function showInfoModal(sohbet) {
+  if (!infoModal) createModal();
+
+  // İçeriği temizle (kapat butonu hariç)
+  while (infoModalContent.firstChild && infoModalContent.firstChild !== infoModalContent.lastChild) {
+    infoModalContent.removeChild(infoModalContent.firstChild);
+  }
+
+  const started = new Date(sohbet.id);
+  const startedStr = started.toLocaleString('tr-TR');
+  const modelObj = MODEL_OPTIONS.find(m => m.value === sohbet.model);
+  const modelLabel = modelObj ? modelObj.label : sohbet.model || 'Model bilgisi yok';
+
+  const infoHtml = `
+    <h3>Sohbet Bilgisi</h3>
+    <p><b>Başlangıç:</b> ${startedStr}</p>
+    <p><b>Model:</b> ${modelLabel}</p>
+    <p><b>Mesaj Sayısı:</b> ${sohbet.messages.length}</p>
+  `;
+  const infoDiv = document.createElement('div');
+  infoDiv.innerHTML = infoHtml;
+  infoModalContent.insertBefore(infoDiv, infoModalContent.lastChild);
+
+  document.body.appendChild(infoModal);
+}
+
+  function selectConv(id) {
+    currentId = id;
+    updateHeader();
+    renderSidebar();
+    renderMessages();
+  }
+
+  function newConv() {
+    const id = Date.now();
+    convs.unshift({ id, title: '', model: MODELS[0], messages: [] });
+    selectConv(id);
+    save();
+  }
+
+  function updateHeader() {
+    const c = convs.find(x => x.id === currentId);
+    if (!c) return;
+    chatTitleEl.textContent = c.title || 'Yeni Sohbet';
+    modelSelectEl.value = c.model;
+    // Sohbet başladıysa model seçimini kapat
+    modelSelectEl.disabled = c.messages.length > 0;
+  }
+
+function renderMessages() {
+  msgsEl.innerHTML = '';
+  const c = convs.find(x => x.id === currentId);
+  if (!c) return;
+  c.messages.forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'msg ' + m.role;
+    // Burada kalın yazıyı <b> tag'ına çeviriyoruz
+    const htmlContent = m.content
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')  // **kalın**
+      .replace(/\*(.+?)\*/g, '<i>$1</i>')      // *italik* (opsiyonel)
+      .replace(/`(.+?)`/g, '<code>$1</code>'); // `kod` (opsiyonel)
+    div.innerHTML = htmlContent;
+    msgsEl.appendChild(div);
+  });
+  msgsEl.scrollTop = msgsEl.scrollHeight;
+}
+
+
+function addMessage(role, content) {
+  const c = convs.find(x => x.id === currentId);
+  if (!c) return;
+  c.messages.push({ role, content });
+  if (role === 'user' && !c.title) c.title = content.slice(0, 20) + (content.length > 20 ? '...' : '');
+  save();
+  renderMessages();  // Burayı ekle, mesaj sonrası mutlaka render et
+}
+
+
+sendBtn.onclick = async () => {
+  const content = inputEl.value.trim();
+  if (!content) return;
+
+  addMessage('user', content);
+  inputEl.value = '';
+
+  let models = [
+    "google/gemma-3-12b-it:free",
+    "google/gemini-2.0-flash-exp:free",
+    "google/gemma-3-27b-it:free",
+    "nousresearch/deephermes-3-mistral-24b-preview:free",
+    "mistralai/mistral-small-3.1-24b-instruct-2503:free",
+    "deepseek/deepseek-r1:free",
+    "nvidia/llama-3.3-nemotron-super-49b-v1:free",
+    "rekaai/reka-flash-3:free",
+    "cognitivecomputations/dolphin3.0-r1-mistral-24b:free",
+    "moonshotai/moonlight-16b-a3b-instruct:free",
+    "qwen/qwq-32b:free",
+    "deepseek/deepseek-chat:free"
+  ];
+
+
+  let currentModelIndex = 0;
+  let done = false;
+
+  // Şu anki API key (ilk başta default key)
+  let currentApiKey = apiKeys[0];
+  // Limit hatası için retry flag'i
+  let triedAlternativeApiKey = false;
+
+  while (!done && currentModelIndex < models.length) {
+    addMessage('system', '⏳ Yanıt bekleniyor...');
+
+    try {
+      const model = models[currentModelIndex];
+
+      let messagesToSend = getCurrentMessages().slice();
+      if (model === "google/gemma-3-12b-it:free") {
+        messagesToSend.push({
+          role: 'system',
+          content: 'Sen çok neşeli, pozitif ve kullanıcıyı mutlu etmeye çalışan bir asistansın.'
+        });
+      }
+      messagesToSend.push({ role: 'user', content });
+
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${currentApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model,
+          messages: messagesToSend
+        })
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText);
+      }
+
+      const data = await res.json();
+      removeLastSystemMessage();
+
+      if (!data.choices || !data.choices.length) throw new Error('Yanıt alınamadı');
+
+      addMessage('assistant', data.choices[0].message.content);
+      done = true;
+
+    } catch (e) {
+      console.log('Hata detay:', e);
+
+      removeLastSystemMessage();
+
+      const errorMsg = e.message.toLowerCase();
+
+      // Limit hatası kontrolü (burayı hata mesajına göre özelleyebilirsin)
+      if ((errorMsg.includes('limit') || errorMsg.includes('quota') || errorMsg.includes('rate limit')) && !triedAlternativeApiKey) {
+        // Başka API key seç ve tekrar dene aynı modelle
+        const oldKey = currentApiKey;
+        currentApiKey = getRandomApiKey(oldKey);
+        triedAlternativeApiKey = true;
+        addMessage('assistant', `⚠️ Limit hatası alındı, başka API key ile tekrar deneniyor...`);
+        // Döngü tekrar başa döner, aynı modelde tekrar denenecek
+      } else {
+        // Eğer limit hatasıysa ve zaten alternatif API key denendiyse ya da farklı hata varsa model değiştir
+        addMessage('assistant', `❌ Model ${models[currentModelIndex]} hata verdi, diğer modele geçiliyor...`);
+        currentModelIndex++;
+        // Yeni modele geçince API key sıfırla
+        currentApiKey = apiKeys[0];
+        triedAlternativeApiKey = false;
+      }
+    }
+  }
+
+  if (!done) {
+    addMessage('assistant', '❌ Tüm modeller denendi, cevap alınamadı.');
+  }
+};
+
+
+
+function getCurrentMessages() {
+  const c = convs.find(x => x.id === currentId);
+  if (!c) return [];
+  return c.messages
+    .filter(m => m.role !== 'system')  // sistem mesajlarını at
+    .map(m => ({ role: m.role === 'assistant' ? 'assistant' : m.role, content: m.content }));
+}
+
+
+function removeLastSystemMessage() {
+  const c = convs.find(x => x.id === currentId);
+  if (!c) return;
+
+  for (let i = c.messages.length - 1; i >= 0; i--) {
+    if (c.messages[i].role === 'system') {
+      c.messages.splice(i, 1);
+      save();
+      renderMessages();
+      break;
+    }
+  }
+}
+
+
+
+
+  // Enter ile gönder, Shift+Enter ile alt satır yap
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendBtn.click();
+    }
+  });
+
+  newChatEl.onclick = newConv;
+
+  // Başlangıçta sohbetler varsa ilkini aç yoksa yenisi
+  if (convs.length === 0) newConv();
+  else selectConv(convs[0].id);
+
+
+const uploadBtn = document.getElementById('uploadBtn');
+const fileInput = document.getElementById('fileInput');
+
+let lastSelectedModel = modelSelectEl.value; // Şu anki model seçimi
+
+modelSelectEl.addEventListener('change', () => {
+  lastSelectedModel = modelSelectEl.value;
+});
+
+uploadBtn.addEventListener('click', () => {
+  fileInput.click();
+});
+
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+
+  // Kullanıcıdan promptu al
+  const userPrompt = prompt("Resim için açıklamanı yaz (örneğin: Bu fotoğrafta ne var?):");
+  if (!userPrompt) {
+    alert("Lütfen bir açıklama gir!");
+    return;
+  }
+
+  // Kullanıcı mesajı olarak promptu sohbete ekle (burası önemli)
+  addMessage('user', userPrompt);
+
+  addMessage('system', '⏳ Resim ve prompt işleniyor...');
+
+  try {
+    const base64Image = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const detectAndTranslate = async (text) => {
+      const res = await fetch(
+        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`
+      );
+      const data = await res.json();
+      return {
+        translated: data[0][0][0],
+        detectedLang: data[2]
+      };
+    };
+
+    const { translated: promptInEnglish, detectedLang } = await detectAndTranslate(userPrompt);
+
+    removeLastSystemMessage();
+    addMessage('system', `⏳ Prompt İngilizceye çevrildi (${detectedLang}), AI cevabı bekleniyor...`);
+
+    const messagesToSend = getCurrentMessages();
+
+    messagesToSend.push({
+      role: 'user',
+      content: [
+        { type: "text", text: promptInEnglish },
+        { type: "image_url", image_url: { url: base64Image } }
+      ]
+    });
+
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`, // senin API key
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'qwen/qwen2.5-vl-72b-instruct:free',
+        messages: messagesToSend
+      })
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error('API Hatası:', errorText);
+      throw new Error('Yanıt alınamadı');
+    }
+
+    const data = await res.json();
+
+    if (!data.choices || !data.choices.length) {
+      throw new Error('Yanıt alınamadı (choices boş)');
+    }
+
+    const aiAnswer = data.choices[0].message.content;
+
+    const translateBack = async (text, targetLang) => {
+      const res = await fetch(
+        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`
+      );
+      const data = await res.json();
+      return data[0].map(arr => arr[0]).join('');
+    };
+
+    const answerInUserLang = await translateBack(aiAnswer, detectedLang);
+
+    removeLastSystemMessage();
+    addMessage('assistant', answerInUserLang);
+
+  } catch (error) {
+    console.error('Resim + AI cevabı hata:', error);
+    removeLastSystemMessage();
+    addMessage('assistant', '❌ Resim işleme veya AI cevabı sırasında hata oluştu.');
+  }
+
+  fileInput.value = '';
+});
+
+
+
+
+</script>
+</body>
+</html>
