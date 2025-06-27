@@ -1,5 +1,5 @@
-// Kütüphane: başka bir sitede çağırılabilir
-async function cevir(apiKey, text, targetLang = 'en') {
+// Geliştirilmiş: kaynak dil opsiyonel olarak eklenebilir
+async function cevir(apiKey, text, targetLang = 'en', sourceLang = '') {
   if (!apiKey || typeof apiKey !== 'string') {
     throw new Error('API key gerekli');
   }
@@ -8,7 +8,9 @@ async function cevir(apiKey, text, targetLang = 'en') {
     throw new Error('Çevrilecek metin boş olamaz');
   }
 
-  const baseTranslateUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(text)}`;
+  const sl = sourceLang.trim() || 'auto'; // boşsa otomatik dil algıla
+
+  const baseTranslateUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${encodeURIComponent(sl)}&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(text)}`;
   const proxyUrl = 'https://cool-snow-6c97.salih0simsek.workers.dev/?url=' + encodeURIComponent(baseTranslateUrl);
 
   try {
@@ -17,9 +19,6 @@ async function cevir(apiKey, text, targetLang = 'en') {
     const data = await resp.json();
 
     const sonuc = data[0].map(part => part[0]).join('');
-
-    // NOT: Firestore'a usageCount güncelleme **bu scriptte yok**, çünkü CORS & güvenlik engeli olur.
-    // İstersen bu işlemi backend'e taşırsın.
 
     return sonuc;
   } catch (err) {
